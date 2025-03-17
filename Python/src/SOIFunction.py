@@ -24,7 +24,7 @@ def plot_soi_data(csv_path, start_date, end_date):
     # 4. 创建时间序列列并进行排序，通过sort_values进行排序
     df_melted["Date"] = pd.to_datetime(df_melted["YEAR"].astype(str) + "-" + df_melted["Month"].astype(str),format="%Y-%b")
     df_melted = df_melted.sort_values(by="Date")
-    df_melted.to_csv("SOI_data_filtered.csv", index=False)
+    df_melted.to_csv("../derived_data/SOI_data_filtered.csv", index=False)
     #5. 筛选合适的日期数据并格式化日期数据
     start_date = pd.Timestamp(start_date)
     end_date = pd.Timestamp(end_date)

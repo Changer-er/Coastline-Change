@@ -18,9 +18,9 @@ def filter_data(filePath):
     #df_new.to_csv(f'../derived_data/{filename}_filtered.csv', index=False)
     return nzd_filter, filename, coastName
 
-def calc_mean_monthly(nzd_filtered):
+def calc_mean_monthly(nzd_filtered, s):
     #df_orig = df_new.copy()
-    coast_smooth_value = smoothn(nzd_filtered[coastName].values, s=3)[0]
+    coast_smooth_value = smoothn(nzd_filtered[coastName].values, s=s)[0]
     s = smoothn(nzd_filtered[coastName].values)[1]
     print(f'未指定情况下，海岸线数据平滑参数 = {s} ')
     nzd_filtered[coastName] = coast_smooth_value
@@ -30,8 +30,8 @@ def calc_mean_monthly(nzd_filtered):
     # coast_monthly_avg.to_csv(f'../derived_data/{filename}_average_monthly.csv', index=False)
     return nzd_monthly_avg
 
-def  preprocess_soi(start_date, end_date):
-    soi_filter, soi_smooth = plot_soi_data('../derived_data/SOI output.csv', start_date, end_date)
+def preprocess_soi(start_date, end_date):
+    soi_filter, soi_smooth = plot_soi_data('../raw_data/SOI_value.csv', start_date, end_date)
     soi_filter["Year-Month"] = soi_filter["Date"].dt.to_period("M")
     SOI_monthly_avg = soi_filter.iloc[:, [2, 4]]
     SOI_monthly_avg.loc[:, "Value"] = soi_smooth
@@ -39,5 +39,5 @@ def  preprocess_soi(start_date, end_date):
 
 def merge_nzd_soi(coast_monthly_avg, SOI_monthly_avg):
     merged_data = pd.merge(coast_monthly_avg, SOI_monthly_avg, on='Year-Month', how='inner')
-    merged_data.to_csv(f'../derived_data/{filename}_soi_Merged', index=False)
+    merged_data.to_csv(f'../derived_data/{filename}_soi_Merged.csv', index=False)
     return merged_data

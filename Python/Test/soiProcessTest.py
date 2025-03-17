@@ -6,8 +6,8 @@ import numpy as np
 # 读取 TXT 文件（空格作为分隔符）
 # df = pd.read_csv('SOI derived_data.txt', sep=r'\s+', header=None, engine='python')
 # # 保存为 CSV（逗号分隔）
-# df.to_csv('SOI output.csv', index=False, header=False)
-data = pd.read_csv('../derived_data/SOI output.csv')
+# df.to_csv('SOI_value.csv', index=False, header=False)
+data = pd.read_csv('../raw_data/SOI_value.csv')
 
 # 设置年份区间和月份名称
 months = data.columns[1:]

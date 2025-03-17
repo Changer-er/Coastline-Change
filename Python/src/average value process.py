@@ -16,7 +16,7 @@ from SOIFunction import plot_soi_data
 import os
 from DataProcess import *
 
-filePath = '../raw_data/nzd_188.csv'
+filePath = '../raw_data/nzd_191.csv'
 
 #Read the NZD original data and calculate the mean for each row
 nzd_filter, filename, coastValueName= filter_data(filePath)
@@ -26,7 +26,7 @@ nzd_filter['dates'] = pd.to_datetime(nzd_filter['dates'])
 nzd_orig = nzd_filter.copy()
 
 # Smooth the filtered data firstly and calculate the average of nzd data on a monthly basis
-coast_monthly_avg = calc_mean_monthly(nzd_filter)
+coast_monthly_avg = calc_mean_monthly(nzd_filter, 5)
 
 # Preprocess SOI data, Select the specified column and change the column name
 start_date = '1999-09-01'
@@ -37,6 +37,7 @@ SOI_monthly_avg = preprocess_soi(start_date, end_date)
 merged_data = merge_nzd_soi(coast_monthly_avg,SOI_monthly_avg)
 
 numerical_data = merged_data.select_dtypes(include=['float64'])
+
 # correlation = numerical_data.corr()# 计算皮尔逊相关系数
 x = numerical_data[f'{filename}_Average_Value'].values
 y = numerical_data['Value'].values
@@ -46,7 +47,7 @@ cross_corr = np.correlate(x - np.mean(x), y - np.mean(y), mode="full") / (np.std
 lag = np.argmax(cross_corr) - (len(x) - 1)
 
 print("最大相关性滞后:", lag)
-print("交叉相关系数:", cross_corr)
+print("最大交叉相关系数:",max(cross_corr))
 
 
 # 获得属性值
@@ -114,4 +115,4 @@ axes[0].legend(loc='best')
 plt.tight_layout()
 plt.show()
 
-# plot_soi_data('../derived_data/SOI output.csv', '1999-09-01', '2022-10-31')
+# plot_soi_data('../derived_data/SOI_value.csv', '1999-09-01', '2022-10-31')
