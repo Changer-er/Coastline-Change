@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from smooth_algorithms.smoothn import smoothn
 
-def plot_soi_data(csv_path, start_date, end_date):
+def plot_soi_data(csv_path, start_date, end_date,s):
     """
     读取 SOI 数据并绘制折线图。
 
@@ -33,8 +33,9 @@ def plot_soi_data(csv_path, start_date, end_date):
     df_melted = df_melted[(df_melted["Date"] >= start_date) & (df_melted["Date"] <= end_date)].reset_index(drop=True)
 
     # 6.数据进行平滑处理
-    soi_smooth = smoothn(df_melted["Value"].values, isrobust=True)[0]
-
+    soi_smooth = smoothn(df_melted["Value"].values, s=s)[0]
+    s = smoothn(df_melted["Value"].values)[1]
+    print(f'original soi smoothing parameters "s"= {s} ')
     return df_melted, soi_smooth
     # 8.画图操作
     # plt.figure(figsize=(16, 5))

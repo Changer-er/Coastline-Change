@@ -16,7 +16,7 @@ from SOIFunction import plot_soi_data
 import os
 from DataProcess import *
 
-filePath = '../raw_data/nzd_191.csv'
+filePath = '../raw_data/nzd_188.csv'
 
 #Read the NZD original data and calculate the mean for each row
 nzd_filter, filename, coastValueName= filter_data(filePath)
@@ -25,13 +25,16 @@ nzd_filter, filename, coastValueName= filter_data(filePath)
 nzd_filter['dates'] = pd.to_datetime(nzd_filter['dates'])
 nzd_orig = nzd_filter.copy()
 
+# smooth parameter s
+s = 3
+
 # Smooth the filtered data firstly and calculate the average of nzd data on a monthly basis
-coast_monthly_avg = calc_mean_monthly(nzd_filter, 5)
+coast_monthly_avg = calc_mean_monthly(nzd_filter, s)
 
 # Preprocess SOI data, Select the specified column and change the column name
 start_date = '1999-09-01'
 end_date = '2024-10-30'
-SOI_monthly_avg = preprocess_soi(start_date, end_date)
+SOI_monthly_avg = preprocess_soi(start_date, end_date, s)
 
 # merge the both data, Leave out months that don't exist
 merged_data = merge_nzd_soi(coast_monthly_avg,SOI_monthly_avg)
@@ -45,9 +48,20 @@ cross_corr = np.correlate(x - np.mean(x), y - np.mean(y), mode="full") / (np.std
 
 # 找到最大相关性
 lag = np.argmax(cross_corr) - (len(x) - 1)
+print("=======================================================")
+print("Maximum correlation lag:", lag)
+print("Maximum cross-correlation coefficient:",max(cross_corr))
+# 获取对应的滞后值
+top_5_indices = np.argsort(cross_corr)[-5:][::-1]
+lags = np.arange(-len(x) + 1, len(x))
+top_5_lags = lags[top_5_indices]
+top_5_values = cross_corr[top_5_indices]
+print("=======================================================")
+print("Top 5 滞后值和对应的互相关系数：")
+for lag, value in zip(top_5_lags, top_5_values):
+    print(f"Lag: {lag}, Correlation: {value:.4f}")
+print(np.argmax(cross_corr),len(x)-1)
 
-print("最大相关性滞后:", lag)
-print("最大交叉相关系数:",max(cross_corr))
 
 
 # 获得属性值
