@@ -2,42 +2,33 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from smooth_algorithms.smoothn import smoothn
 
-def plot_soi_data(csv_path, start_date, end_date,s):
-    """
-    读取 SOI 数据并绘制折线图。
-
-    参数：
-    - file_path: str，TXT 数据文件路径
-    - start_year: int，起始年份
-    - end_year: int，结束年份
-    """
-    # 重新读取 CSV
-    df = pd.read_csv(csv_path)
-
-    # 2. 将数据转换成长格式
-    df_melted = df.melt(id_vars=["YEAR"], var_name="Month", value_name="Value")
-
-    # 3. 确保月份按正确顺序排列, 修改月份为category类型，具有顺序特性
-    month_order = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
-    df_melted["Month"] = pd.Categorical(df_melted["Month"], categories=month_order, ordered=True)
-
-    # 4. 创建时间序列列并进行排序，通过sort_values进行排序
-    df_melted["Date"] = pd.to_datetime(df_melted["YEAR"].astype(str) + "-" + df_melted["Month"].astype(str),format="%Y-%b")
-    df_melted = df_melted.sort_values(by="Date")
-    df_melted.to_csv("../derived_data/SOI_data_filtered.csv", index=False)
-    #5. 筛选合适的日期数据并格式化日期数据
-    start_date = pd.Timestamp(start_date)
-    end_date = pd.Timestamp(end_date)
-    start_date = start_date.strftime('%Y-%m')
-    end_date = end_date.strftime('%Y-%m')
-    df_melted = df_melted[(df_melted["Date"] >= start_date) & (df_melted["Date"] <= end_date)].reset_index(drop=True)
-
-    # 6.数据进行平滑处理
-    soi_smooth = smoothn(df_melted["Value"].values, s=s)[0]
-    s = smoothn(df_melted["Value"].values)[1]
-    print(f'original soi smoothing parameters "s"= {s} ')
-    return df_melted, soi_smooth
-    # 8.画图操作
+# def plot_soi_data(csv_path):
+#     """
+#     读取 SOI 数据并绘制折线图。
+#
+#     参数：
+#     - file_path: str，TXT 数据文件路径
+#     - start_year: int，起始年份
+#     - end_year: int，结束年份
+#     """
+#     # 重新读取 CSV
+#     df = pd.read_csv(csv_path)
+#
+#     # 2. 将数据转换成长格式
+#     df_melted = df.melt(id_vars=["YEAR"], var_name="Month", value_name="Value")
+#
+#     # 3. 确保月份按正确顺序排列, 修改月份为category类型，具有顺序特性
+#     month_order = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"]
+#     df_melted["Month"] = pd.Categorical(df_melted["Month"], categories=month_order, ordered=True)
+#
+#     # 4. 创建时间序列列并进行排序，通过sort_values进行排序
+#     df_melted["Date"] = pd.to_datetime(df_melted["YEAR"].astype(str) + "-" + df_melted["Month"].astype(str),format="%Y-%b")
+#     df_melted = df_melted.sort_values(by="Date")
+#     filepath = '../derived_data/SOI_data_filtered.csv'
+#     df_melted.to_csv("../derived_data/SOI_data_filtered.csv", index=False)
+#
+#     return filepath
+#     # 8.画图操作
     # plt.figure(figsize=(16, 5))
     # plt.plot(df_melted["Date"], soi_smooth, marker='o', linestyle='-', color='b', label="Value")
     # plt.xlabel("Year")

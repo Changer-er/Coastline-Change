@@ -21,7 +21,7 @@ from smooth_algorithms.smoothn import smoothn, test1
 t = np.linspace(0, 2 * np.pi, 1000)
 x = 2 * np.cos(t) * (1 - np.cos(t)) + np.random.randn(len(t)) * 0.1
 y = 2 * np.sin(t) * (1 - np.cos(t)) + np.random.randn(len(t)) * 0.1
-z = smoothn(x + 1j * y, s = 40)[0]
+z = smoothn(x + 1j * y)[0]
 s = smoothn(x + 1j * y)[1]
 print(s)
 plt.figure(figsize=(6, 6))
