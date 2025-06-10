@@ -13,10 +13,10 @@ from DataProcess import *
 
 names, orientation, nzd_file = extract_filename()
 
-start_date = '1999-09-01'
-end_date = '2024-10-30'
-# start_date = '2007-01-01'
-# end_date = '2016-12-31'
+# start_date = '1999-09-01'
+# end_date = '2024-10-30'
+start_date = '2007-01-01'
+end_date = '2016-12-31'
 start_date = pd.Timestamp(start_date)
 end_date = pd.Timestamp(end_date)
 start_year = start_date.year
@@ -117,7 +117,7 @@ for index, value in names.items():
     axes[1, 0].annotate(
         f'Max Corr = {max_corr:.3f}\nLag = {max_lag}',
         xy=(max_lag, max_corr),
-        xytext=(max_lag + 15, max_corr - 0.2),
+        xytext=(max_lag + 10, max_corr + 0.1),
         arrowprops=dict(facecolor='black', arrowstyle='->'),
         fontsize=10,
         bbox=dict(boxstyle="round,pad=0.3", fc="yellow", alpha=0.3)
@@ -136,7 +136,7 @@ for index, value in names.items():
     axes[1, 1].annotate(
         f'Max Corr = {max_select_corr:.3f}\nLag = {max_select_lag}',
         xy=(max_select_lag, max_select_corr),
-        xytext=(max_select_lag + 5, max_select_corr - 0.2),
+        xytext=(max_select_lag + 1, max_select_corr + 0.1),
         arrowprops=dict(facecolor='black', arrowstyle='->'),
         fontsize=10,
         bbox=dict(boxstyle="round,pad=0.3", fc="yellow", alpha=0.3)
