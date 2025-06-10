@@ -4,127 +4,165 @@
 Created on Wed Nov 27 09:17:55 2024
 @author: chang
 """
-
+import os.path
 
 import matplotlib.pyplot as plt
+import numpy as np
+
 from DataProcess import *
 
-filePath = '../raw_data/nzd_188.csv'
+names, orientation, nzd_file = extract_filename()
 
-#Read the NZD original data and calculate the mean for each row
-nzd_filter, filename, coastValueName= filter_data(filePath)
-
-# Get the hard copy of nzd filtered data for plotting
-nzd_filter['dates'] = pd.to_datetime(nzd_filter['dates'])
-nzd_orig = nzd_filter.copy()
-
-# smooth parameter s
-s = 8
-
-# Smooth the filtered data firstly and calculate the average of nzd data on a monthly basis
-nzd_monthly, nzd_smooth_monthly = calc_mean_monthly(nzd_filter, s)
-
-# Preprocess SOI data, Select the specified column and change the column name
 start_date = '1999-09-01'
 end_date = '2024-10-30'
+# start_date = '2007-01-01'
+# end_date = '2016-12-31'
+start_date = pd.Timestamp(start_date)
+end_date = pd.Timestamp(end_date)
+start_year = start_date.year
+end_year = end_date.year
 
-SOI_monthly_avg = preprocess_soi(start_date, end_date, s)
+# smooth parameter s
+s = 4
+print(f"=======================================SOI Value====================================")
+print(f'The Smoothing Parameters we set: "s"= {s} ')
+SOI_before_smooth, SOI_monthly_avg = preprocess_soi(start_date, end_date, s)
 
-# merge the both data, Leave out months that don't exist
-merged_data = merge_nzd_soi(nzd_smooth_monthly,SOI_monthly_avg)
-merged_raw_data = merge_raw(nzd_monthly,SOI_monthly_avg)
+for index, value in names.items():
+    filename = value
+    filePath = f'../Coastline_data/{filename}/transect_time_series_tidally_corrected.csv'
+    #Read the NZD original data and calculate the mean for each row
+    nzd_filter, coastValueName= filter_data(filePath, filename, start_year, end_year)
 
-merged_data.to_csv()
-numerical_data = merged_data.select_dtypes(include=['float64'])
+    # Get the hard copy of nzd filtered data for plotting
+    nzd_filter['dates'] = pd.to_datetime(nzd_filter['dates'])
+    nzd_orig = nzd_filter.copy()
 
-merged_data["Year-Month"] = merged_data["Year-Month"].dt.to_timestamp()
-nzd_monthly["Year-Month"] = nzd_monthly["Year-Month"].dt.to_timestamp()
+    # Smooth the filtered data firstly and calculate the average of nzd data on a monthly basis
+    nzd_monthly, nzd_smooth_monthly = calc_mean_monthly(nzd_filter, start_date, end_date, s)
 
-# correlation = numerical_data.corr()# 计算皮尔逊相关系数
-x = numerical_data[f'{filename}_Average_Value'].values
-y = numerical_data['Smooth_Value'].values
-cross_corr = np.correlate(x - np.mean(x), y - np.mean(y), mode="full") / (np.std(x) * np.std(y) * len(x))
-# 找到最大相关性
-lag = np.argmax(cross_corr) - (len(x) - 1)
-print("=======================================================")
-print("Maximum correlation lag:", lag)
-print("Maximum cross-correlation coefficient:",max(cross_corr))
+    # merge the both data, Leave out months that don't exist
+    merged_data = merge_nzd_soi(nzd_smooth_monthly,SOI_monthly_avg)
+    merged_data.to_csv()
+    numerical_data = merged_data.select_dtypes(include=['float64'])
+    merged_data["Year-Month"] = merged_data["Year-Month"].dt.to_timestamp()
+    nzd_monthly["Year-Month"] = nzd_monthly["Year-Month"].dt.to_timestamp()
 
-# # 获取对应的滞后值
-# top_5_indices = np.argsort(cross_corr)[-5:][::-1]
-# lags = np.arange(-len(x) + 1, len(x))
-# top_5_lags = lags[top_5_indices]
-# top_5_values = cross_corr[top_5_indices]
-# print("=======================================================")
-# print("Top 5, lag and relative cross-correlation coefficients:")
-# for lag, value in zip(top_5_lags, top_5_values):
-#     print(f"Lag: {lag}, Correlation: {value:.4f}")
-# print(np.argmax(cross_corr),len(x)-1)
+    # 1. Calculate correlation
+    x = numerical_data[f'{filename}_Average_Value'].values
+    y = numerical_data['Smooth_Value'].values
+    (max_lag, max_corr, max_select_lag, max_select_corr,
+     lags, cross_corr, select_lags_x, select_lags_y) = calc_cross_correlation(x, y)
 
+    # 2. Define the test statistic (sum of squares)
+    selected_lags = np.arange(0, 12)
+    observed_stat = compute_test_statistic(cross_corr, selected_lags, len(x))
+    print(f"Observed test statistic (Q): {observed_stat:.4f}")
 
-# 获得属性值
-coastName = nzd_filter.columns
-num = len(coastName)
+    # 3. Bootstrap joint inspection
+    np.random.seed(42)
+    bootstrap_stats = bootstrap_test(x, y, selected_lags, n_bootstrap=5000)
+    print(f"Bootstrap test statistic (Q): {bootstrap_stats}")
 
-#设置变量储存前一个子图
-ax_prev = None
+    # 4. 计算 p 值
+    p_value = np.mean(bootstrap_stats >= observed_stat)
 
-# 绘制海岸线变化情况以及soi变化情况
-fig, axes = plt.subplots( 1 ,2, sharex=False, figsize=(20,8))
-
-axes[0].plot(nzd_monthly["Year-Month"],nzd_monthly[coastValueName], 'g-', label="188nzd value")
-axes[0].set_ylabel("188nzd value")
-#子图标题，设置基本格式
-axes[0].tick_params(axis='x', rotation=45)# X轴标签旋转，防止重叠
-axes[0].grid(True)
-axes[0].legend(loc='best')
-
-axes[1].plot(merged_data["Year-Month"], merged_data[coastValueName],'g-.', label=f"{filename}_Coastline_value")
-axes[1].legend(loc='upper left')
-#绘制soi平滑后数据
-ax1 = axes[1].twinx()
-ax1.plot(merged_data["Year-Month"], merged_data["Smooth_Value"], 'b-', label="SOI value")
-ax1.set_ylabel("SOI value")
-#绘制子图标题，设置基本格式
-ax1.tick_params(axis='x', rotation=45)# X轴标签旋转，防止重叠
-ax1.grid(True)
-ax1.legend(loc='best')
-
-# 多次
-# for ax, (i, col) in zip(axes.flat, enumerate(coastName)):
-#     if i % 2 == 1:
-#         df = df.dropna(subset=[col])
-#         coastValue = df[col].values
-#         coastDate = pd.to_datetime(df[df.columns[i-1]].values)
-#         coastSmooth = smoothn(coastValue, isrobust=True)[0]
-#         #绘制海岸线平滑后的变化数据
-#         ax.plot(coastDate, coastSmooth, 'b-.', label=col)
-#         ax.set_ylabel("Coastline change")
-#         ax.set_ylim(345,370)
-#
-#         #绘制soi平滑后数据
-#         ax1 = ax.twinx()
-#         ax1.plot(df_melted["Date"], soi_smooth, 'g-', label="SOI value")
-#         ax1.set_ylabel("SOI value")
-#
-#         #绘制子图标题，设置基本格式
-#         ax.set_title(col + '_smooth and SOI_smooth')
-#         ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
-#         ax.tick_params(axis='x', rotation=45)# X轴标签旋转，防止重叠
-#         ax.grid(True)
-#         ax1.legend(loc='best')
-#         ax.legend(loc='best')
-#
-#         if ax_prev is not None: #绘制海岸线变化数据
-#             ax_prev.plot(coastDate, coastValue, label=col + '_original', color='r')
-#             ax_prev.set_title(col + '_original')
-#             ax_prev.legend(loc='best')
-#             ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m'))
-#             ax.tick_params(axis='x', rotation=45)
-#     ax_prev = ax
+    #2：Bootstrap估计置信区间
+    print(f"======================================={filename}====================================")
+    print(f"Observed test statistic (Q): {observed_stat:.4f}")
+    print(f"Bootstrap p-value: {p_value:.4f}")
+    print("\n")
+    print("Maximum correlation lag:", max_lag)
+    print("Maximum cross-correlation coefficient:",max_corr)
 
 
+    nzd_file.loc[index, 'Max_Lag'] = max_lag
+    nzd_file.loc[index, 'Max_Correlation'] = max_corr
+    nzd_file.loc[index, 'Max_Selected_lag'] = max_select_lag
+    nzd_file.loc[index, 'Max_Selected_Correlation'] = max_select_corr
+
+
+    # 绘制海岸线变化情况以及soi变化情况
+    fig, axes = plt.subplots( 2 ,2, sharex=False, figsize=(20,8))
+
+    axes[0, 0].plot(nzd_monthly["Year-Month"],nzd_monthly[coastValueName], 'g-', label=f"{filename}_value")
+    axes[0, 0].set_ylabel("188nzd value")
+    axes[0, 0].set_title(f"{filename}_Coastline_before_smoothing")
+    #子图标题，设置基本格式
+    axes[0, 0].tick_params(axis='x', rotation=45)# X轴标签旋转，防止重叠
+    axes[0, 0].grid(True)
+    axes[0, 0].legend(loc='best')
+
+    axes[0, 1].plot(merged_data["Year-Month"], merged_data[coastValueName],'g-.', label=f"{filename}_Coastline_value")
+    axes[0, 1].legend(loc='upper left')
+    axes[0, 1].set_title(f"{filename}_Coastline_and_SOI_after_smoothing")
+    #绘制soi平滑后数据
+    ax1 = axes[0, 1].twinx()
+    ax1.plot(merged_data["Year-Month"], merged_data["Smooth_Value"], 'b-', label="SOI value")
+    ax1.set_ylabel("SOI value")
+    #绘制子图标题，设置基本格式
+    ax1.tick_params(axis='x', rotation=45)# X轴标签旋转，防止重叠
+    ax1.grid(True)
+    ax1.legend(loc='best')
+
+    axes[1, 0].plot(lags, cross_corr, 'g-', label="Cross correlation")
+    axes[1, 0].set_ylabel("The cross-correlation")
+    axes[1, 0].set_title("The relation between lags and cross-correlation")
+    #子图标题，设置基本格式
+    axes[1, 0].tick_params(axis='x', rotation=45)# X轴标签旋转，防止重叠
+    axes[1, 0].grid(True)
+    axes[1, 0].legend(loc='best')
+    axes[1, 0].axvline(x = max_lag, color='r', linestyle='--', label=f"Max value at lag = {max_lag}")
+    axes[1, 0].axhline(y = max_corr, color='r', linestyle='--', label=f"Max value = {max_corr}")
+    axes[1, 0].annotate(
+        f'Max Corr = {max_corr:.3f}\nLag = {max_lag}',
+        xy=(max_lag, max_corr),
+        xytext=(max_lag + 15, max_corr - 0.2),
+        arrowprops=dict(facecolor='black', arrowstyle='->'),
+        fontsize=10,
+        bbox=dict(boxstyle="round,pad=0.3", fc="yellow", alpha=0.3)
+    )
+
+
+    axes[1, 1].plot(select_lags_x, select_lags_y, 'b-', label="Cross correlation")
+    axes[1, 1].set_ylabel("The cross-correlation")
+    axes[1, 1].set_title("The relation between lags and cross-correlation within 2 year")
+    #子图标题，设置基本格式
+    axes[1, 1].tick_params(axis='x', rotation=45)# X轴标签旋转，防止重叠
+    axes[1, 1].grid(True)
+    axes[1, 1].legend(loc='best')
+    axes[1, 1].axvline(x=max_select_lag, color='r', linestyle='--', label=f"Max value at lag after 0 = {max_select_lag}")
+    axes[1, 1].axhline(y=max_select_corr, color='r', linestyle='--', label=f"Max value after 0= {max_select_corr}")
+    axes[1, 1].annotate(
+        f'Max Corr = {max_select_corr:.3f}\nLag = {max_select_lag}',
+        xy=(max_select_lag, max_select_corr),
+        xytext=(max_select_lag + 5, max_select_corr - 0.2),
+        arrowprops=dict(facecolor='black', arrowstyle='->'),
+        fontsize=10,
+        bbox=dict(boxstyle="round,pad=0.3", fc="yellow", alpha=0.3)
+    )
+
+    outputfile = f"../fig/nzd_{start_year}_{end_year}/"
+    os.makedirs(outputfile, exist_ok=True)
+    fig.savefig(os.path.join(outputfile,f"{filename}_Coastline.png"), dpi=300, bbox_inches='tight')
+
+    # plt.hist(bootstrap_stats, bins=50, alpha=0.7, label="Bootstrap Distribution")
+    # plt.axvline(observed_stat, color="red", label="Observed Statistic")
+    # plt.title("Bootstrap Distribution of Test Statistic (Q)")
+    # plt.xlabel("Sum of Squared Cross-Correlations")
+    # plt.legend()
+    # plt.show()
+
+    plt.tight_layout()
+    plt.show()
+
+nzd_file.to_csv(f"../derived_data/nzd_results_{start_year}_{end_year}.csv", index=False)
+
+plt.figure(figsize=(10,5))
+plt.plot(SOI_before_smooth["Year-Month"].dt.to_timestamp(), SOI_before_smooth["Value"], color='red', marker = 'o')
+plt.title("SOI change over time")
+plt.xlabel("Year-Month")
+plt.ylabel("SOI value")
+plt.grid(True)
 plt.tight_layout()
 plt.show()
-
-# plot_soi_data('../derived_data/SOI_value.csv', '1999-09-01', '2022-10-31')

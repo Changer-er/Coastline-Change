@@ -1,16 +1,26 @@
 import numpy as np
+import pandas as pd
+import os
 
-# 创建两个信号，其中 y 是 x 的滞后版本
-x = np.array([1, 2, 3, 4, 5])
-y = np.array([0, 1, 2, 3, 4])  # y 比 x 滞后了 1
+filePath = f'../Coastline_data/nzd0100/transect_time_series_tidally_corrected.csv'
+df_nzd = pd.read_csv(filePath)
 
-# 计算互相关
-cross_corr = np.correlate(x, y, mode='full')
+start_date = '2007-01-01'
+end_date = '2016-12-31'
+start_date = pd.Timestamp(start_date)
+end_date = pd.Timestamp(end_date)
+start_year = start_date.year
+end_year = end_date.year
 
-# 计算滞后
-lag = np.argmax(cross_corr) - (len(x) - 1)
+coastName = f'nzd_0100_Average_Value'
+output_dir = f'../derived_data/{start_year}_{end_year}/nzd0100/'
 
-print("互相关序列:", cross_corr)
-print("最大互相关的索引:", np.argmax(cross_corr))
-print("滞后量 lag:", lag)
-print("滞后量 lag:", np.argmax(cross_corr))
+os.makedirs(output_dir, exist_ok=True)
+print(df_nzd.iloc[:,-1])
+df_nzd[coastName] = df_nzd.iloc[:,1:-1].mean(axis=1)
+nzd_filter = df_nzd.iloc[:, [0, -1]]  # 只保留第一列（日期）和最后一列（平均值）
+#
+# nzd_filter.to_csv(os.path.join(output_dir, f'nzd0132_transects_average.csv'), index=False)
+nzd_file = pd.read_csv("../raw_data/nzd group.CSV")
+rows = nzd_file.iloc[0,:]
+print(rows)
