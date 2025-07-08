@@ -7,7 +7,21 @@ def extract_filename():
     nzd_file = pd.read_csv("../raw_data/nzd group.CSV")
     nzd_column = nzd_file['nzd_name']
     nzd_orientation = nzd_file['orientation']
-    return nzd_column, nzd_orientation, nzd_file
+    nzd_radians = nzd_orientation * np.pi / 180
+    x = np.sin(nzd_radians)
+    y = np.cos(nzd_radians)
+
+    conditions = [
+        (x > 0) & (y > 0),
+        (x > 0) & (y < 0),
+        (x < 0) & (y < 0),
+        (x < 0) & (y > 0),
+    ]
+    choices = [1,2,3,4]
+
+    nzd_file['quadrant'] = np.select(conditions, choices, default=0)
+    quadrant = nzd_file['quadrant']
+    return nzd_column, quadrant, nzd_file
 
 #计算所有行数据平均值，计算该海岸平均距离， nzd_filtered表格
 def filter_data(filePath, filename, start_year, end_year):
@@ -114,19 +128,18 @@ def calc_cross_correlation(x, y):
     cross_corr, lags = compute_cross_correlation(x,y)
     # 找到最大相关性
     max_indices = np.argmax(np.abs(cross_corr))
-
     max_lag = lags[max_indices]
     max_corr = cross_corr[max_indices]
 
     # 绘制滞后值前后12个月的内容
     window = 12
-    start = n
-    end = n + window
-    select_lags_x = lags[start - window: end]
-    select_lags_y = cross_corr[start - window: end]
+    origin = n - 1
 
-    select_lags = lags[start:end]
-    select_corr = cross_corr[start:end]
+    select_lags_x = lags[origin - window: origin + window]
+    select_lags_y = cross_corr[origin - window: origin + window]
+
+    select_lags = lags[origin: origin + window]
+    select_corr = cross_corr[origin: origin + window]
 
     max_select_indices = np.argmax(np.abs(select_corr))
     max_select_lag = select_lags[max_select_indices]
@@ -143,15 +156,15 @@ def compute_cross_correlation(x, y):
     lags = np.arange(-len(x) + 1, len(x))
     return cross_corr, lags
 
-def compute_test_statistic(cross_corr, selected_lags, n):
+def compute_test_statistic(cross_corr, period, n):
     """计算选定滞后的平方和"""
-    return np.sum(cross_corr[selected_lags + (n - 1)]**2)  # 调整滞后索引
+    return np.sum(cross_corr[period + (n - 1)]**2)  # 调整滞后索引
 
-def bootstrap_test(x, y, selected_lags, n_bootstrap=1000):
+def bootstrap_test(x, y, period, n_bootstrap=1000):
     """Bootstrap 生成 Q 的分布"""
     n = len(x)
     stat_samples = []
-    block_size = 12
+    block_size = 6
     n_blocks = n // block_size
     for _ in range(n_bootstrap):
         # 随机选择块并拼接
@@ -163,8 +176,8 @@ def bootstrap_test(x, y, selected_lags, n_bootstrap=1000):
         y_boot = y[indices[:n]]
 
         # 计算互相关
-        _, cross_corr_boot = compute_cross_correlation(x_boot, y_boot)
-        stat = compute_test_statistic(cross_corr_boot, selected_lags, n)
+        cross_corr_boot, _ = compute_cross_correlation(x_boot, y_boot)
+        stat = compute_test_statistic(cross_corr_boot, period, n)
         stat_samples.append(stat)
 
     return np.array(stat_samples)
