@@ -15,7 +15,7 @@ names, quadrant, nzd_file = extract_filename()
 
 # start_date = '1999-09-01'
 # end_date = '2024-10-30'
-start_date = '2011-01-01'
+start_date = '2010-06-01'
 end_date = '2013-12-31'
 start_date = pd.Timestamp(start_date)
 end_date = pd.Timestamp(end_date)
@@ -55,7 +55,7 @@ for index, value in names.items():
     (max_lag, max_corr, max_select_lag, max_select_corr,
      lags, cross_corr, select_lags_x, select_lags_y) = calc_cross_correlation(x, y)
 
-    # # 2. Define the test statistic (sum of squares)
+    # 2. Define the test statistic (sum of squares)
     # selected_lags = np.arange(0, 12)
     # observed_stat = compute_test_statistic(cross_corr, selected_lags, len(x))
     #
