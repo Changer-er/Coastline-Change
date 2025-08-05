@@ -15,8 +15,8 @@ names, quadrant, nzd_file = extract_filename()
 
 # start_date = '1999-09-01'
 # end_date = '2024-10-30'
-start_date = '2010-06-01'
-end_date = '2013-12-31'
+start_date = '2014-06-01'
+end_date = '2016-5-31'
 start_date = pd.Timestamp(start_date)
 end_date = pd.Timestamp(end_date)
 start_year = start_date.year
@@ -65,10 +65,14 @@ for index, value in names.items():
     #
     # # 4. 计算 p 值
     # p_boot = np.mean(bootstrap_stats >= observed_stat)
-
-
     x2 = x[max_select_lag: len(x)]
     y2 = y[0: len(x) - max_select_lag]
+
+    if len(x2) < 2 or len(y2) < 2:
+        print(f"Skip {filename} due to insufficient data points for pearsonr.")
+        continue  # 或者使用 pass，取决于你是否在 loop 中
+
+
     cc, p_pearsonr = pearsonr(y2, x2)
 
     #2：Bootstrap估计置信区间
