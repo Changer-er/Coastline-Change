@@ -135,18 +135,16 @@ def calc_cross_correlation(x, y):
     window = 12
     origin = n - 1
 
-    select_lags_x = lags[origin - window: origin + window]
-    select_lags_y = cross_corr[origin - window: origin + window]
-
-    select_lags = lags[origin: origin + window]
-    select_corr = cross_corr[origin: origin + window]
+    # 选择在6个月最大correlation处的lag值
+    select_lags = lags[origin: origin + 6]
+    select_corr = cross_corr[origin: origin + 6]
 
     max_select_indices = np.argmax(np.abs(select_corr))
     max_select_lag = select_lags[max_select_indices]
     max_select_corr = select_corr[max_select_indices]
 
     return (max_lag, max_corr, max_select_lag, max_select_corr,
-            lags, cross_corr, select_lags_x, select_lags_y)
+            lags, cross_corr, select_lags, select_corr)
 
 
 def compute_cross_correlation(x, y):
