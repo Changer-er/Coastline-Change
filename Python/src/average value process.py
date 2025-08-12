@@ -10,13 +10,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import pearsonr
 from DataProcess import *
+from Crosscorrelation import *
 
 names, quadrant, nzd_file = extract_filename()
 
-# start_date = '1999-09-01'
-# end_date = '2024-10-30'
-start_date = '2014-06-01'
-end_date = '2016-5-31'
+start_date = '1999-09-01'
+end_date = '2024-10-30'
+# start_date = '2015-01-01'
+# end_date = '2016-5-31'
 start_date = pd.Timestamp(start_date)
 end_date = pd.Timestamp(end_date)
 start_year = start_date.year
@@ -30,7 +31,7 @@ SOI_before_smooth, SOI_smooth = preprocess_soi(start_date, end_date, s)
 
 for index, value in names.items():
     filename = value
-    filePath = f'../Coastline_data/{filename}/transect_time_series_tidally_corrected.csv'
+    filePath = f'../Clean_coastline_data/{filename}/transect_time_series_tidally_corrected.csv'
 
     #Read the NZD original data and calculate the mean for each row
     nzd_filter, coastValueName= filter_data(filePath, filename, start_year, end_year)
@@ -44,7 +45,6 @@ for index, value in names.items():
 
     # merge the both data, Leave out months that don't exist
     merged_data = merge_nzd_soi(nzd_smooth,SOI_smooth)
-    merged_data.to_csv()
     numerical_data = merged_data.select_dtypes(include=['float64'])
     merged_data["Year-Month"] = merged_data["Year-Month"].dt.to_timestamp()
     nzd_monthly["Year-Month"] = nzd_monthly["Year-Month"].dt.to_timestamp()
@@ -52,8 +52,11 @@ for index, value in names.items():
     # 1. Calculate correlation
     x = numerical_data[f'{filename}_Average_Value'].values
     y = numerical_data['Smooth_Value'].values
-    (max_lag, max_corr, max_select_lag, max_select_corr,
-     lags, cross_corr, select_lags_x, select_lags_y) = calc_cross_correlation(x, y)
+    (max_lag, max_corr, _, _,
+     lags, cross_corr, _, _) = calc_cross_correlation(x, y)
+
+    (max_select_lag, max_select_corr, max_p, select_x, select_y, select_p)= calc_cross_corr(x,y)
+
 
     # 2. Define the test statistic (sum of squares)
     # selected_lags = np.arange(0, 12)
@@ -65,29 +68,27 @@ for index, value in names.items():
     #
     # # 4. 计算 p 值
     # p_boot = np.mean(bootstrap_stats >= observed_stat)
-    x2 = x[max_select_lag: len(x)]
-    y2 = y[0: len(x) - max_select_lag]
-
-    if len(x2) < 2 or len(y2) < 2:
-        print(f"Skip {filename} due to insufficient data points for pearsonr.")
-        continue  # 或者使用 pass，取决于你是否在 loop 中
-
-
-    cc, p_pearsonr = pearsonr(y2, x2)
+    # x2 = x[max_select_lag: len(x)]
+    # y2 = y[0: len(x) - max_select_lag]
+    #
+    # if len(x2) < 2 or len(y2) < 2:
+    #     print(f"Skip {filename} due to insufficient data points for pearsonr.")
+    #     continue  # 或者使用 pass，取决于你是否在 loop 中
+    #
+    #
+    # cc, p_pearsonr = pearsonr(y2, x2)
 
     #2：Bootstrap估计置信区间
     print(f"======================================={filename}====================================")
-    print(f"pearsonr cross-correlation: {cc:.4f}")
-    print(f"p-value: {p_pearsonr:.4f}")
+    print("- max_lag:", max_select_lag)
+    print("- max_cc:", max_select_corr)
+    print(f"- max_p: {max_p:.4f}")
     # print(f"Bootstrap p-value: {p_boot:.4f}")
-    print("- Maximum correlation lag:", max_select_lag)
-    print("- Maximum cross-correlation coefficient:",max_select_corr)
 
 
-    nzd_file.loc[index, 'p-value'] = p_pearsonr
-    # nzd_file.loc[index, 'Bootstrap p-value'] = p_boot
+    nzd_file.loc[index, 'p-value'] = max_p
     nzd_file.loc[index, 'Max_lag'] = max_select_lag
-    nzd_file.loc[index, 'Max_Correlation'] = cc
+    nzd_file.loc[index, 'Max_Correlation'] = max_select_corr
 
     # 绘制海岸线变化情况以及soi变化情况
     fig, axes = plt.subplots( 2 ,2, sharex=False, figsize=(20,8))
@@ -112,26 +113,40 @@ for index, value in names.items():
     ax1.grid(True)
     ax1.legend(loc='best')
 
-    axes[1, 0].plot(lags, cross_corr, 'g-', label="Cross correlation")
-    axes[1, 0].set_ylabel("The cross-correlation")
-    axes[1, 0].set_title("The relation between lags and cross-correlation")
-    #子图标题，设置基本格式
-    axes[1, 0].tick_params(axis='x', rotation=45)# X轴标签旋转，防止重叠
-    axes[1, 0].grid(True)
-    axes[1, 0].legend(loc='best')
-    axes[1, 0].axvline(x = max_lag, color='r', linestyle='--', label=f"Max value at lag = {max_lag}")
-    axes[1, 0].axhline(y = max_corr, color='r', linestyle='--', label=f"Max value = {max_corr}")
-    axes[1, 0].annotate(
-        f'Max Corr = {max_corr:.3f}\nLag = {max_lag}',
-        xy=(max_lag, max_corr),
-        xytext=(max_lag + 10, max_corr + 0.1),
-        arrowprops=dict(facecolor='black', arrowstyle='->'),
-        fontsize=10,
-        bbox=dict(boxstyle="round,pad=0.3", fc="yellow", alpha=0.3)
-    )
+    if max_select_lag > 0:
+        x_plot = x[:-max_select_lag]
+        y_plot = y[max_select_lag:]
+    else:
+        x_plot = x
+        y_plot = y
+
+    axes[1,0].scatter(x_plot,y_plot, alpha=0.7)
+    axes[1,0].set_xlabel(f"{filename}_Average_Value (shifted for lag={max_select_lag})")
+    axes[1,0].set_ylabel(f"Smooth_Value")
+    axes[1,0].grid(True)
+    axes[1,0].set_title(f"Cross-Correlation at Lag = {max_select_lag}")
+    # 绘制soi平滑后数据
+
+    # axes[1, 0].plot(lags, cross_corr, 'g-', label="Cross correlation")
+    # axes[1, 0].set_ylabel("The cross-correlation")
+    # axes[1, 0].set_title("The relation between lags and cross-correlation")
+    # #子图标题，设置基本格式
+    # axes[1, 0].tick_params(axis='x', rotation=45)# X轴标签旋转，防止重叠
+    # axes[1, 0].grid(True)
+    # axes[1, 0].legend(loc='best')
+    # axes[1, 0].axvline(x = max_lag, color='r', linestyle='--', label=f"Max value at lag = {max_lag}")
+    # axes[1, 0].axhline(y = max_corr, color='r', linestyle='--', label=f"Max value = {max_corr}")
+    # axes[1, 0].annotate(
+    #     f'Max Corr = {max_corr:.3f}\nLag = {max_lag}',
+    #     xy=(max_lag, max_corr),
+    #     xytext=(max_lag + 1, max_corr + 0.1),
+    #     arrowprops=dict(facecolor='black', arrowstyle='->'),
+    #     fontsize=10,
+    #     bbox=dict(boxstyle="round,pad=0.3", fc="yellow", alpha=0.3)
+    # )
 
 
-    axes[1, 1].plot(select_lags_x, select_lags_y, 'b-', label="Cross correlation")
+    axes[1, 1].plot(select_x, select_y, 'b-', label="Cross correlation")
     axes[1, 1].set_ylabel("The cross-correlation")
     axes[1, 1].set_title("The relation between lags and cross-correlation within 2 year")
     #子图标题，设置基本格式
@@ -143,30 +158,22 @@ for index, value in names.items():
     axes[1, 1].annotate(
         f'Max Corr = {max_select_corr:.3f}\nLag = {max_select_lag}',
         xy=(max_select_lag, max_select_corr),
-        xytext=(max_select_lag + 1, max_select_corr + 0.1),
+        xytext=(max_select_lag + 0.05, max_select_corr + 0.01),
         arrowprops=dict(facecolor='black', arrowstyle='->'),
         fontsize=10,
         bbox=dict(boxstyle="round,pad=0.3", fc="yellow", alpha=0.3)
     )
 
-    outputfile = f"../fig/nzd_{start_year}_{end_year}/"
+    outputfile = f"../fig2/nzd_{start_year}_{end_year}/"
     os.makedirs(outputfile, exist_ok=True)
     fig.savefig(os.path.join(outputfile,f"{filename}_Coastline.png"), dpi=300, bbox_inches='tight')
-
-    # plt.hist(bootstrap_stats, bins=50, alpha=0.7, label="Bootstrap Distribution")
-    # plt.axvline(observed_stat, color="red", label="Observed Statistic")
-    # plt.title("Bootstrap Distribution of Test Statistic (Q)")
-    # plt.xlabel("Sum of Squared Cross-Correlations")
-    # plt.legend()
-    # plt.show()
-
     plt.tight_layout()
     plt.show()
 
-nzd_file.to_csv(f"../derived_data/nzd_results_{start_year}_{end_year}.csv", index=False)
+nzd_file.to_csv(f"../derived_data2/nzd_results_{start_year}_{end_year}.csv", index=False)
 
 plt.figure(figsize=(10,5))
-plt.plot(SOI_before_smooth["Year-Month"].dt.to_timestamp(), SOI_before_smooth["Value"], color='red', marker = 'o')
+plt.plot(merged_data["Year-Month"], merged_data["Smooth_Value"], color='red', marker = 'o')
 plt.title("SOI change over time")
 plt.xlabel("Year-Month")
 plt.ylabel("SOI value")

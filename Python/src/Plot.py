@@ -1,9 +1,9 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-start_date = '2014'
-end_date = '2016'
-nzd_file = pd.read_csv(f"../derived_data/nzd_results_{start_date}_{end_date}.csv")
+start_date = '1999'
+end_date = '2024'
+nzd_file = pd.read_csv(f"../derived_data2/nzd_results_{start_date}_{end_date}.csv")
 quadrant_values = sorted(nzd_file["quadrant"].unique())
 directions_values = sorted(nzd_file["location"].unique())
 
@@ -25,7 +25,7 @@ for i, quad in enumerate(quadrant_values):
                         textcoords='offset points',
                         horizontalalignment='center')
 plt.tight_layout()
-fig.savefig(f"../fig/quadrant/Coastline_{start_date}_{end_date}.png", dpi=300, bbox_inches='tight')
+fig.savefig(f"../fig2/quadrant/Coastline_{start_date}_{end_date}.png", dpi=300, bbox_inches='tight')
 plt.show()
 
 fig, ax = plt.subplots(3, 1, figsize=(12, 8))
@@ -47,7 +47,7 @@ for i, dirs in enumerate(directions_values):
                         horizontalalignment='center')
 plt.tight_layout()
 
-fig.savefig(f"../fig/location/Coastline_{start_date}_{end_date}.png", dpi=300, bbox_inches='tight')
+fig.savefig(f"../fig2/location/Coastline_{start_date}_{end_date}.png", dpi=300, bbox_inches='tight')
 plt.show()
 
 fig, ax = plt.subplots(3, 1, figsize=(12, 8))
@@ -69,5 +69,5 @@ for i, dirs in enumerate(directions_values):
                         horizontalalignment='center')
 plt.tight_layout()
 
-fig.savefig(f"../fig/location/Coastline_lag_{start_date}_{end_date}.png", dpi=300, bbox_inches='tight')
+fig.savefig(f"../fig2/location/lag_{start_date}_{end_date}.png", dpi=300, bbox_inches='tight')
 plt.show()
