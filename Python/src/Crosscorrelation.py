@@ -12,7 +12,7 @@ def calc_cross_corr(x, y):
 
     for lag in lags:
         if lag >= n:
-            r_list.append(np.nan)  # 这里改成 r_list 而不是 r
+            r_list.append(np.nan)
             p_list.append(np.nan)
             continue
 
@@ -20,7 +20,7 @@ def calc_cross_corr(x, y):
         y_seg = y[0: n - lag]
 
         if len(x_seg) < 2:
-            r_list.append(np.nan)  # 这里改成 r_list 而不是 r
+            r_list.append(np.nan)
             p_list.append(np.nan)
             continue
 

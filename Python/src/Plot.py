@@ -1,15 +1,18 @@
+import os.path
 import pandas as pd
 import matplotlib.pyplot as plt
 
-start_date = '1999'
-end_date = '2024'
-nzd_file = pd.read_csv(f"../derived_data2/nzd_results_{start_date}_{end_date}.csv")
+start_date = '2010'
+end_date = '2014'
+nzd_file = pd.read_csv(f"../derived_data/Results/{start_date}_{end_date}/Coastline_summary.csv")
 quadrant_values = sorted(nzd_file["quadrant"].unique())
 directions_values = sorted(nzd_file["location"].unique())
 
 fig, ax = plt.subplots(2, 2, figsize=(12, 8))
 axs = ax.flatten()
-
+output = f"../derived_data/Figure/{start_date}_{end_date}_Summary/"
+os.makedirs(output, exist_ok=True)
+# 绘制不同象限的结果
 for i, quad in enumerate(quadrant_values):
     data_q = nzd_file[nzd_file["quadrant"] == quad]
     data_q = data_q[data_q["p-value"] <= 0.05]
@@ -25,12 +28,14 @@ for i, quad in enumerate(quadrant_values):
                         textcoords='offset points',
                         horizontalalignment='center')
 plt.tight_layout()
-fig.savefig(f"../fig2/quadrant/Coastline_{start_date}_{end_date}.png", dpi=300, bbox_inches='tight')
+os.path.join(output,"Coastline_quadrant.png")
+fig.savefig(os.path.join(output,"Coastline_quadrant.png"), dpi=300, bbox_inches='tight')
 plt.show()
 
 fig, ax = plt.subplots(3, 1, figsize=(12, 8))
 axs = ax.flatten()
 
+# 绘制不同方向海岸的互相关性
 for i, dirs in enumerate(directions_values):
     data_dirs = nzd_file[nzd_file["location"] == dirs]
     data_dirs = data_dirs[data_dirs["p-value"] <= 0.05]
@@ -47,9 +52,10 @@ for i, dirs in enumerate(directions_values):
                         horizontalalignment='center')
 plt.tight_layout()
 
-fig.savefig(f"../fig2/location/Coastline_{start_date}_{end_date}.png", dpi=300, bbox_inches='tight')
+fig.savefig(os.path.join(output,"Coastline_location.png"), dpi=300, bbox_inches='tight')
 plt.show()
 
+# 绘制不同方向海岸的lag
 fig, ax = plt.subplots(3, 1, figsize=(12, 8))
 axs = ax.flatten()
 
@@ -69,5 +75,5 @@ for i, dirs in enumerate(directions_values):
                         horizontalalignment='center')
 plt.tight_layout()
 
-fig.savefig(f"../fig2/location/lag_{start_date}_{end_date}.png", dpi=300, bbox_inches='tight')
+fig.savefig(os.path.join(output,"Coastline_lag.png"), dpi=300, bbox_inches='tight')
 plt.show()

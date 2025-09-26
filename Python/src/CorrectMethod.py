@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from smooth_algorithms.smoothn import smoothn
 filepath = '../derived_data/Combined_raw_nzd_188_soi.csv'
 coastline_month_avg = pd.read_csv(filepath)
-coastName = f'nzd_188_Average_Value'
+coast_average = f'nzd_188_Average_Value'
 coastline_month_avg["Year-Month"] = pd.to_datetime(coastline_month_avg["Year-Month"])
 coastline_month_avg["Year"] = coastline_month_avg["Year-Month"].dt.year
 coastline_month_avg["Month"] = coastline_month_avg["Year-Month"].dt.month
@@ -38,8 +38,8 @@ def classify_enso(soi):
 coastline_month_avg["ENSO_phase"] = coastline_month_avg["Value"].apply(lambda x: classify_enso(x))
 print(coastline_month_avg)
 # Smooth the soi data
-coastline_smooth_avg = coastline_month_avg[coastName].mean()
-coastline_month_avg["Bias"] = coastline_month_avg[coastName] - coastline_smooth_avg
+coastline_smooth_avg = coastline_month_avg[coast_average].mean()
+coastline_month_avg["Bias"] = coastline_month_avg[coast_average] - coastline_smooth_avg
 coast_smooth_bias = smoothn(coastline_month_avg["Bias"].values)[0]
 s = smoothn(coastline_month_avg["Bias"].values)[1]
 coastline_month_avg["Bias_smooth"] = coast_smooth_bias
