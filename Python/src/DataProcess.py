@@ -62,7 +62,7 @@ def extract_filename():
     quadrant = nzd_file['quadrant']
     return nzd_column, quadrant, nzd_file
 
-# 去趋势化，减去长期平均值，计算月均异常值
+# 减去长期平均值，去趋势化，计算月均异常值
 def filter_data(filePath, CoastlineName, start_year, end_year):
     global coast_average, coastline, output_dir
     coastline = CoastlineName
@@ -70,6 +70,11 @@ def filter_data(filePath, CoastlineName, start_year, end_year):
     df_nzd = pd.read_excel(filePath, sheet_name=None)
     Coastline_ts = df_nzd['Intersects']
     Trend_data = df_nzd['Transects']
+
+    #----------previous process-----------
+    # Previous_data = Coastline_ts.copy()
+    # Previous_data["monthly_anomaly"] = Previous_data.iloc[:, 1:-1].mean(axis=1)
+    # Previous_data = Previous_data.iloc[:, [0, -1]].dropna()
 
     # 选出可靠性高的id
     Significant_Trend = Trend_data[Trend_data['r2_score'] > 0.05]
@@ -81,12 +86,6 @@ def filter_data(filePath, CoastlineName, start_year, end_year):
 
     #转为datatime64时期格式，计算基于开始时间的年份比例
     Coastline_ts['dates'] = pd.to_datetime(Coastline_ts['dates'], utc=True)
-
-
-    # 排序显著性的trend的index
-    trend = Significant_Trend['trend']
-    # 扩展 trend 成与 Coastline_ts[Significant_ids] 同形状的 DataFrame
-    trend_df = pd.DataFrame([trend.values] * len(Coastline_ts), columns=Significant_ids)
 
     # 获得显著性海岸线的dataframe
     Significant_coastline = Coastline_ts[['dates'] + Significant_ids.tolist()].copy()
@@ -100,21 +99,16 @@ def filter_data(filePath, CoastlineName, start_year, end_year):
     coastline_detrend = detrend(Significant_coastline)
 
     coast_average = f'{coastline}_Average_Value'
-    #计算的到按月平均异常值
-    coastline_detrend[coast_average] = coastline_detrend.iloc[:,1:].mean(axis=1)
+
+    #计算transects mean
+    coastline_detrend[coast_average] = coastline_detrend.iloc[:, 1:].mean(axis=1)
 
     nzd_filter = coastline_detrend.iloc[:, [0, -1]].dropna()  # 只保留第一列（日期）和最后一列（平均值）
     output_dir = f'../derived_data/Results/{start_year}_{end_year}/{coastline}/'
     os.makedirs(output_dir, exist_ok=True)
-    #处理异常值
-    # Q1 = nzd_filter[coastName].quantile(0.25)
-    # Q3 = nzd_filter[coastName].quantile(0.75)
-    # IQR = Q3 - Q1
-    # nzd_filter = nzd_filter[(nzd_filter[coastName] >= (Q1 - 1.5 * IQR)) &
-    #                         (nzd_filter[coastName] <= (Q3 + 1.5 * IQR))]
 
     nzd_filter.to_csv(os.path.join(output_dir, f'{coastline}_transects_average.csv'), index=False)
-    return nzd_filter, coast_average
+    return nzd_filter, coast_average #, Previous_data
 
 # LinearRegression to detrend
 def detrend(df):
@@ -138,32 +132,65 @@ def detrend(df):
     df_detrend = df
     return df_detrend
 
-
+# def previous_process(monthly_mean, s):
+#     # 处理数据的日期数据
+#     monthly_mean['dates'] = pd.to_datetime(monthly_mean['dates'])
+#     monthly_mean["dates"] = monthly_mean["dates"].dt.tz_localize(None)
+#     monthly_mean["Year-Month"] = monthly_mean["dates"].dt.to_period("M")  # 只保留年-月
+#
+#     #计算平滑后的数据
+#     coast_smooth_value = smoothn(monthly_mean["monthly_anomaly"].values, s=s)[0]
+#     coast_smooth = smoothn(monthly_mean["monthly_anomaly"].values)[1]
+#     print(f'original coast smoothing parameters "s"= {coast_smooth} ')
+#
+#     # 计算未平滑处理的月平均值
+#     nzd_monthly = monthly_mean.groupby("Year-Month").mean().reset_index()
+#
+#     # 计划平滑处理后的月平均值
+#     monthly_mean[coast_average] = coast_smooth_value
+#     nzd_monthly_smooth = monthly_mean.groupby("Year-Month").mean().reset_index()
+#
+#     return nzd_monthly, nzd_monthly_smooth
 
 # 先筛选年份，然后进行平滑处理，计算月平均值
-def calc_mean_monthly(nzd_filter, s):
+def calc_mean_monthly(monthly_mean, s):
 
     # 处理数据的日期数据
-    nzd_filter['dates'] = pd.to_datetime(nzd_filter['dates'])
-    nzd_filter["dates"] = nzd_filter["dates"].dt.tz_localize(None)
-    nzd_filter["Year-Month"] = nzd_filter["dates"].dt.to_period("M")  # 只保留年-月
+    monthly_mean['dates'] = pd.to_datetime(monthly_mean['dates'])
+    monthly_mean["dates"] = monthly_mean["dates"].dt.tz_localize(None)
+    monthly_mean["Year-Month"] = monthly_mean["dates"].dt.to_period("M")  # 只保留年-月
+    monthly_mean['month'] = monthly_mean['Year-Month'].dt.month
 
     #计算平滑后的数据
-    coast_smooth_value = smoothn(nzd_filter[coast_average].values, s=s)[0]
-    coast_smooth = smoothn(nzd_filter[coast_average].values)[1]
+    coast_smooth_value = smoothn(monthly_mean[coast_average].values, s=s)[0]
+    coast_smooth = smoothn(monthly_mean[coast_average].values)[1]
     print(f'original coast smoothing parameters "s"= {coast_smooth} ')
 
     # 计算未平滑处理的月平均值
-    nzd_monthly = nzd_filter.groupby("Year-Month")[coast_average].mean().reset_index()
+    nzd_monthly = remove_clim_trend(monthly_mean)
 
     # 计划平滑处理后的月平均值
-    nzd_filter[coast_average] = coast_smooth_value
-    nzd_smooth_monthly = nzd_filter.groupby("Year-Month")[coast_average].mean().reset_index()
-    nzd_smooth_monthly.to_csv(os.path.join(output_dir, f'{coastline}_smooth_monthly.csv'), index=False)
+    monthly_mean[coast_average] = coast_smooth_value
+    nzd_monthly_smooth = remove_clim_trend(monthly_mean)
+    nzd_monthly_smooth.to_csv(os.path.join(output_dir, f'{coastline}_smooth_monthly.csv'), index=False)
 
-    return nzd_monthly, nzd_smooth_monthly
+    return nzd_monthly, nzd_monthly_smooth
 
+def remove_clim_trend(df):
+    monthly_mean_anomalies = (
+        df
+        .groupby("Year-Month", as_index=False)[coast_average].mean()
+    )
 
+    clim = (
+        df
+        .groupby("month", as_index=False)[coast_average].mean()
+        .rename(columns={coast_average: 'climatology'})
+    )
+    monthly_mean_anomalies['month'] = monthly_mean_anomalies['Year-Month'].dt.month
+    out = monthly_mean_anomalies.merge(clim, on="month", how="left")
+    out['monthly_anomaly'] = out[coast_average] - out['climatology']
+    return out
 
 def merge_nzd_soi(coast_monthly, SOI_monthly):
     merged_data = pd.merge(coast_monthly, SOI_monthly, on='Year-Month', how='inner')

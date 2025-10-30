@@ -15,10 +15,10 @@ from Crosscorrelation import *
 
 names, quadrant, nzd_file = extract_filename()
 
+# start_date = '1999-10-01'
+# end_date = '2024-12-31'
 start_date = '2010-01-01'
 end_date = '2014-12-31'
-# start_date = '2010-06-01'
-# end_date = '2012-5-31'
 start_date = pd.Timestamp(start_date)
 end_date = pd.Timestamp(end_date)
 start_year = start_date.year
@@ -47,20 +47,22 @@ for index, value in names.items():
 
     # Smooth the filtered data firstly and calculate the average of nzd data on a monthly basis
     nzd_monthly, nzd_smooth_monthly = calc_mean_monthly(nzd_filter, s)
+    # Previous_data_monthly, Previous_data_smooth_monthly = previous_process(Previous_data, s)
 
     # merge the both data, Leave out months that don't exist
     merged_data = merge_nzd_soi(nzd_smooth_monthly, SOI_smooth)
+    # merged_data = merge_nzd_soi(nzd_monthly, SOI_before_smooth)
 
     merged_data["Year-Month"] = merged_data["Year-Month"].dt.to_timestamp()
     nzd_monthly["Year-Month"] = nzd_monthly["Year-Month"].dt.to_timestamp()
-
+    # Previous_data_monthly["Year-Month"] = Previous_data_monthly["Year-Month"].dt.to_timestamp()
     # (max_lag, max_corr, _, _,
     #  lags, cross_corr, _, _) = calc_cross_correlation(x, y)
 
     # 创建的互相关性计算公式
     numerical_data = merged_data.select_dtypes(include=['float64'])
-    x = numerical_data[f'{CoastlineName}_Average_Value'].values
-    y = numerical_data['Value'].values
+    x = numerical_data['monthly_anomaly'].values
+    y = numerical_data["Smooth_Value"].values
     (max_select_lag, max_select_corr, max_p, select_x, select_y, select_p) = calc_cross_corr(x, y)
 
     #2：Bootstrap估计置信区间
@@ -72,21 +74,21 @@ for index, value in names.items():
     # 绘制海岸线变化情况以及soi变化情况
     fig, axes = plt.subplots( 2 ,2, sharex=False, figsize=(20,8))
 
-    axes[0, 0].plot(nzd_monthly["Year-Month"],nzd_monthly[coastValueName], 'g-', label=f"{CoastlineName}_value")
+    axes[0, 0].plot(nzd_monthly["Year-Month"],nzd_monthly['monthly_anomaly'], 'g-', label=f"{CoastlineName}_value")
     axes[0, 0].set_ylabel("coastline value")
     axes[0, 0].set_title(f"{CoastlineName}_Coastline and SOI before smoothing")
     #子图标题，设置基本格式
     axes[0, 0].tick_params(axis='x', rotation=45)# X轴标签旋转，防止重叠
     axes[0, 0].grid(True)
     axes[0, 0].legend(loc='best')
-    ax = axes[0, 0].twinx()
-    ax.plot(merged_data["Year-Month"], merged_data["Value"], 'b-', label="SOI value")
-    ax.set_ylabel("SOI value")
-    ax.tick_params(axis='x', rotation=45)  # X轴标签旋转，防止重叠
-    ax.grid(True)
-    ax.legend(loc='best')
+    # ax = axes[0, 0].twinx()
+    # ax.plot(merged_data["Year-Month"], merged_data["Value"], 'b-', label="SOI value")
+    # ax.set_ylabel("SOI value")
+    # ax.tick_params(axis='x', rotation=45)  # X轴标签旋转，防止重叠
+    # ax.grid(True)
+    # ax.legend(loc='best')
 
-    axes[0, 1].plot(merged_data["Year-Month"], merged_data[coastValueName],'g-.', label=f"{CoastlineName}_Coastline_value")
+    axes[0, 1].plot(merged_data["Year-Month"], merged_data['monthly_anomaly'],'g-.', label=f"{CoastlineName}_Coastline_value")
     axes[0, 1].legend(loc='upper left')
     axes[0, 1].set_title(f"{CoastlineName}_Coastline_and_SOI_after_smoothing during {start_date} to {end_date}")
     axes[0, 1].set_xlabel("Year-Month")
@@ -101,17 +103,27 @@ for index, value in names.items():
     ax1.legend(loc='best')
 
     if max_select_lag > 0:
-        x_plot = x[:-max_select_lag]
-        y_plot = y[max_select_lag:]
+        x_plot = x[max_select_lag:]
+        y_plot = y[:-max_select_lag]
     else:
         x_plot = x
         y_plot = y
+    print(x_plot)
+    print(y_plot)
+    def zscore_nan(a):
+        mu = np.nanmean(a)  # 忽略 NaN 的均值
+        sigma = np.nanstd(a, ddof=1)  # 忽略 NaN 的样本标准差（ddof=1）
+        return (a - mu) / sigma  # 原来是 NaN 的位置仍是 NaN
 
-    axes[1,0].scatter(x_plot,y_plot, alpha=0.7)
+    x_plot_z = zscore_nan(x_plot)
+    y_plot_z = zscore_nan(y_plot)
+
+    axes[1,0].scatter(x_plot_z, y_plot_z, alpha=0.7)
     axes[1,0].set_xlabel(f"{CoastlineName}_Value (shifted for lag={max_select_lag})")
     axes[1,0].set_ylabel(f"SOI_Value")
     axes[1,0].grid(True)
     axes[1,0].set_title(f"Cross-Correlation at Lag = {max_select_lag}")
+    axes[1, 0].set_aspect('equal', adjustable='box')
 
     axes[1, 1].plot(select_x, select_y, 'b-', label="Cross correlation")
     axes[1, 1].set_ylabel("The cross-correlation")
