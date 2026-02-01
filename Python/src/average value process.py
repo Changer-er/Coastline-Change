@@ -15,8 +15,8 @@ from Crosscorrelation import *
 
 names, quadrant, nzd_file = extract_filename()
 
-# start_date = '1999-10-01'
-# end_date = '2024-12-31'
+# start_date = '2000-01-01'
+# end_date = '2025-12-31'
 start_date = '2010-01-01'
 end_date = '2014-12-31'
 start_date = pd.Timestamp(start_date)
@@ -24,16 +24,16 @@ end_date = pd.Timestamp(end_date)
 start_year = start_date.year
 end_year = end_date.year
 
+smooth_soi = input("Use smooth SOI? (y/n): ").strip().lower() in ("y", "yes", "1", "true")
+
 # smooth parameter s
-s = 3
+s = 0
 print(f"=======================================SOI Value====================================")
-print(f'The Smoothing Parameters we set: "s"= {s} ')
 SOI_before_smooth, SOI_smooth = preprocess_soi(start_date, end_date, s)
 
-for index, value in names.items():
-    CoastlineName = value
-    Coastline_ts = f'../Clean_coastline_data/{CoastlineName}/transect_time_series_tidally_corrected.csv'
-    filepath = f'../Trend_data/{CoastlineName}.xlsx'
+for index, CoastlineName in names.items():
+    # Coastline_ts = f'../Clean_coastline_data/{CoastlineName}/transect_time_series_tidally_corrected.csv'
+    filepath = f'../Trend_data/{CoastlineName}/{CoastlineName}.xlsx'
 
     #Read the NZD original data and calculate the mean for each row
     result = filter_data(filepath, CoastlineName, start_year, end_year)
@@ -46,23 +46,25 @@ for index, value in names.items():
         nzd_filter, coastValueName = result
 
     # Smooth the filtered data firstly and calculate the average of nzd data on a monthly basis
-    nzd_monthly, nzd_smooth_monthly = calc_mean_monthly(nzd_filter, s)
-    # Previous_data_monthly, Previous_data_smooth_monthly = previous_process(Previous_data, s)
+    nzd_monthly = calc_mean_monthly(nzd_filter, s)
 
     # merge the both data, Leave out months that don't exist
-    merged_data = merge_nzd_soi(nzd_smooth_monthly, SOI_smooth)
-    # merged_data = merge_nzd_soi(nzd_monthly, SOI_before_smooth)
+    if smooth_soi:
+        merged_data = merge_nzd_soi(nzd_monthly, SOI_smooth)
+        numerical_data = merged_data.select_dtypes(include=['float64'])
+        y = numerical_data["Smooth_Value"].values
+        SOI_value = "Smooth_Value"
+    else:
+        merged_data = merge_nzd_soi(nzd_monthly, SOI_before_smooth)
+        numerical_data = merged_data.select_dtypes(include=['float64'])
+        y = numerical_data["Value"].values
+        SOI_value = "Value"
 
     merged_data["Year-Month"] = merged_data["Year-Month"].dt.to_timestamp()
     nzd_monthly["Year-Month"] = nzd_monthly["Year-Month"].dt.to_timestamp()
-    # Previous_data_monthly["Year-Month"] = Previous_data_monthly["Year-Month"].dt.to_timestamp()
-    # (max_lag, max_corr, _, _,
-    #  lags, cross_corr, _, _) = calc_cross_correlation(x, y)
 
     # 创建的互相关性计算公式
-    numerical_data = merged_data.select_dtypes(include=['float64'])
     x = numerical_data['monthly_anomaly'].values
-    y = numerical_data["Smooth_Value"].values
     (max_select_lag, max_select_corr, max_p, select_x, select_y, select_p) = calc_cross_corr(x, y)
 
     #2：Bootstrap估计置信区间
@@ -95,7 +97,7 @@ for index, value in names.items():
     axes[0, 1].set_ylabel("coastline smooth value")
     #绘制soi平滑后数据
     ax1 = axes[0, 1].twinx()
-    ax1.plot(merged_data["Year-Month"], merged_data["Smooth_Value"], 'b-', label="SOI value")
+    ax1.plot(merged_data["Year-Month"], merged_data[SOI_value], 'b-', label="SOI value")
     ax1.set_ylabel("SOI smooth value")
     #绘制子图标题，设置基本格式
     ax1.tick_params(axis='x', rotation=45)# X轴标签旋转，防止重叠

@@ -1,0 +1,121 @@
+---
+title: "Wavelet coherence"
+author: "Chang Liu"
+date: "2025-11-11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+```{R wavelet analysis}
+# install.packages("biwavelet")
+library(biwavelet)
+
+in_dir  <- "E:/workingspace/Python/wavelet_data/2010_2014/"
+out_dir <- file.path(in_dir, "wavelet_plots")
+dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
+
+nrands <- 200
+set.seed(1)
+
+# 是否也画单变量功率谱（很费图，默认 FALSE）
+plot_univariate <- FALSE
+
+files <- list.files(in_dir, pattern = "\\.csv$", full.names = TRUE)
+
+for (f in files) {
+  message("Processing: ", f)
+  df <- read.csv(f, stringsAsFactors = FALSE, check.names = FALSE)
+  
+  # 检查列
+  need <- c("Year-Month", "SOI", "coastline_change")
+  miss <- setdiff(need, names(df))
+  if (length(miss) > 0) {
+    message("  Skip (missing columns): ", paste(miss, collapse = ", "))
+    next
+  }
+
+  # 1) 解析日期（你的格式像 1/01/2010, 1/02/2010 ...，按 Y/m 解析）
+  ym <- trimws(df[["Year-Month"]])
+  d  <- as.Date(paste0(ym, "/01"), format = "%Y/%m/%d")
+  
+  if (all(is.na(d))) {
+    message("  Skip: 日期解析失败（检查 Year-Month 格式）")
+    next
+  }
+
+  # 2) 生成严格的“月序号”t（不会用 30.4375 近似）
+  t_raw <- as.integer(format(d, "%Y")) * 12 + as.integer(format(d, "%m"))
+  t <- t_raw - min(t_raw, na.rm = TRUE)  # 从 0 开始（每月 +1）
+
+  # 3) 取 X/Y
+  x <- as.numeric(df[["coastline_change"]])
+  y <- as.numeric(df[["SOI"]])
+
+  X <- cbind(t, x)
+  Y <- cbind(t, y)
+
+  # 6) 小波相干
+  wtc.xy <- wtc(X, Y, nrands = nrands, param = -1)
+
+  # 7) 输出图
+  base_name <- tools::file_path_sans_ext(basename(f))
+  out_png <- file.path(out_dir, paste0(base_name, "_WTC.png"))
+
+  png(out_png, width = 1400, height = 900, res = 150)
+  plot(
+    wtc.xy,
+    plot.phase = TRUE,
+    lty.coi   = 1,
+    col.coi   = "grey",
+    lwd.coi   = 2,
+    lwd.sig   = 2,
+    arrow.lwd = 0.04,
+    arrow.len = 0.07,
+    ylab = "Scale",
+    xlab = "Time (months index)",
+    plot.cb = TRUE,
+    main = paste0("Coastline vs SOI — ", base_name)
+  )
+  dev.off()
+  
+  rm(df, X, Y, wtc.xy, d, t, x, y)
+  gc()
+}
+
+message("Done. Plots saved to: ", out_dir)
+
+```
+
+
+
+```{R}
+# 用对齐数据的起始日期（2000-12）转成小数年
+start_year <- 2000 + (12 - 1)/12  # 2000.9167...
+n <- nrow(X)
+t_years <- start_year + (0:(n-1))/12
+
+X_yr <- data.frame(t = t_years, coastal = X$coastal)
+Y_yr <- data.frame(t = t_years, SOI = Y$SOI)
+
+wtc.xy.yr <- wtc(X_yr, Y_yr, nrands = 100, param = -1)
+
+# 画图并把纵轴标注为 "Period (years)"
+plot(
+  wtc.xy.yr,
+  plot.phase = TRUE,
+  lty.coi = 1, col.coi = "grey", lwd.coi = 2,
+  lwd.sig = 2, arrow.lwd = 0.04, arrow.len = 0.07,
+  ylab = "Period (years)",
+  xlab = "Time (years)",
+  plot.cb = TRUE,
+  main = "Coastal vs SOI (time in years)"
+)
+
+```

@@ -3,7 +3,7 @@ from scipy.stats import pearsonr
 
 def calc_cross_corr(x, y):
     n = len(x)
-    lags = range(0, 4)
+    lags = range(2, 7)
     r_list = []
     p_list = []
 
